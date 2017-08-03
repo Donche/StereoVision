@@ -31,11 +31,11 @@ public:
 
 private:
 	 Mat GetImage(int camNum, int i);
-	//void calcBoardCornerPositions( vector< Point3f>& corners);
+	void calcBoardCornerPositions( vector< Point3f>& corners);
 	double computeReprojectionErrors(const  vector< vector< Point3f> >& objectPoints,
 		const  vector< Mat>& rvecs, const  vector< Mat>& tvecs,
 		 vector<float>& perViewErrors, bool camNum);
-	bool runCalibration( vector< vector< Point3f> >& objectPoints, 
+	bool runCalibration( vector< vector< Point3f> >& objectPoints,
 		 vector< Mat>& rvecs,  vector< Mat>& tvecs,
 		 vector<float>& reprojErrs, double& totalAvgErr, bool camNum);
 	void saveCameraParams( const  vector< Mat>& rvecs, const  vector< Mat>& tvecs,

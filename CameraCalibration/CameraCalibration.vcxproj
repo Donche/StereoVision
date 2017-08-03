@@ -24,7 +24,7 @@
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>CameraCalibration</RootNamespace>
     <WindowsTargetPlatformVersion>10.0.15063.0</WindowsTargetPlatformVersion>
-    <ProjectName>ExoVision</ProjectName>
+    <ProjectName>ExoVision_OpenCv3</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -78,8 +78,8 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>D:\OpenCv2\opencv\build\include\opencv2;D:\OpenCv2\opencv\build\include\opencv;D:\OpenCv2\opencv\build\include;$(IncludePath)</IncludePath>
-    <LibraryPath>D:\OpenCv2\opencv\build\x64\vc12\lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>D:\OpenCv3\new_opencv_contrib-master\install\include\opencv2;D:\OpenCv3\new_opencv_contrib-master\install\include\opencv;D:\OpenCv3\new_opencv_contrib-master\install\include;$(IncludePath)</IncludePath>
+    <LibraryPath>D:\OpenCv3\new_opencv_contrib-master\install\x64\vc15\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
@@ -107,11 +107,10 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
-      <AdditionalDependencies>opencv_calib3d2413d.lib;opencv_contrib2413d.lib;opencv_core2413d.lib;opencv_features2d2413d.lib;opencv_flann2413d.lib;opencv_gpu2413d.lib;opencv_highgui2413d.lib;opencv_imgproc2413d.lib;opencv_legacy2413d.lib;opencv_ml2413d.lib;opencv_nonfree2413d.lib;opencv_objdetect2413d.lib;opencv_photo2413d.lib;opencv_stitching2413d.lib;opencv_ts2413d.lib;opencv_video2413d.lib;opencv_videostab2413d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>opencv_aruco320d.lib;opencv_bgsegm320d.lib;opencv_bioinspired320d.lib;opencv_calib3d320d.lib;opencv_ccalib320d.lib;opencv_core320d.lib;opencv_datasets320d.lib;opencv_dpm320d.lib;opencv_face320d.lib;opencv_features2d320d.lib;opencv_flann320d.lib;opencv_fuzzy320d.lib;opencv_highgui320d.lib;opencv_img_hash320d.lib;opencv_imgcodecs320d.lib;opencv_imgproc320d.lib;opencv_line_descriptor320d.lib;opencv_ml320d.lib;opencv_objdetect320d.lib;opencv_phase_unwrapping320d.lib;opencv_photo320d.lib;opencv_plot320d.lib;opencv_reg320d.lib;opencv_rgbd320d.lib;opencv_saliency320d.lib;opencv_shape320d.lib;opencv_stereo320d.lib;opencv_structured_light320d.lib;opencv_superres320d.lib;opencv_surface_matching320d.lib;opencv_text320d.lib;opencv_tracking320d.lib;opencv_video320d.lib;opencv_videoio320d.lib;opencv_videostab320d.lib;opencv_xfeatures2d320d.lib;opencv_xobjdetect320d.lib;opencv_xphoto320d.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">

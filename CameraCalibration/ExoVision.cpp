@@ -43,6 +43,8 @@ void openCamera() {
 	while (1) {
 		cam0 >> imgLeft;
 		cam1 >> imgRight;
+		flip(imgLeft, imgLeft, 0);
+		flip(imgRight, imgRight, 0);
 		imgTotal.create(Size(DISP_IMG_WIDTH * 2, DISP_IMG_HEIGHT), CV_8UC3);
 		resize(imgLeft, imgTotal(rect1), Size(DISP_IMG_WIDTH, DISP_IMG_HEIGHT));
 		resize(imgRight, imgTotal(rect2), Size(DISP_IMG_WIDTH, DISP_IMG_HEIGHT));
@@ -72,7 +74,12 @@ int main()
 			sc.runStereoCalibration();
 			break;
 		case '3':
-			if(sv.initSV())	sv.runVision();
+			cout << "1.BM Photo \t 2.SGBM Photo \t 3.BM vision \t 4.SGBM vision \t\n"
+				<< "5.SURF photo \t 6.SURF vision \t 7.ORB visoin \t 0.Return" << endl;
+			int inp;
+			cin >> inp;
+
+			sv.runStereoVision((StereoVision::StereoType)(inp - 1));
 			break;
 		case '4':
 			openCamera();

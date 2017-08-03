@@ -20,6 +20,8 @@ StereoCalibration::StereoCalibration():RED(Scalar(0, 0, 255)), GREEN(Scalar(0, 2
 	boardSize.height = HEIGHT;
 }
 
+
+
 bool StereoCalibration::runStereoCalibration()
 {
 	int imageNumber = 0;
@@ -32,10 +34,6 @@ bool StereoCalibration::runStereoCalibration()
 		return false;
 	}
 
-	vector<vector<Point2f>> pointBuf(2);
-	vector<bool> found(2);
-	vector<Mat> viewGray(2);
-
 	for (int i = 0; i < imageNumber; ++i) {
 		view[0] = GetImage(0, i);
 		view[1] = GetImage(1, i);
@@ -45,6 +43,8 @@ bool StereoCalibration::runStereoCalibration()
 		}
 
 		imageSize = view[0].size();  // Format input image.
+		vector<vector<Point2f>> pointBuf(2);
+		vector<bool> found(2);
 		found[0] = findChessboardCorners(view[0], Size(WIDTH, HEIGHT), pointBuf[0],
 			CV_CALIB_CB_ADAPTIVE_THRESH | CV_CALIB_CB_FAST_CHECK | CV_CALIB_CB_NORMALIZE_IMAGE);
 		found[1] = findChessboardCorners(view[1], Size(WIDTH, HEIGHT), pointBuf[1],
@@ -53,6 +53,7 @@ bool StereoCalibration::runStereoCalibration()
 
 		if (found[0] && found[1])
 		{
+			vector<Mat> viewGray(2);
 			cvtColor(view[0], viewGray[0], COLOR_BGR2GRAY);
 			cornerSubPix(viewGray[0], pointBuf[0], Size(11, 11),
 				Size(-1, -1), TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1));
@@ -137,6 +138,7 @@ bool StereoCalibration::runStereoCalibration()
 	return 1;
 }
 
+
 Mat StereoCalibration::GetImage(int camNum, int i) {
 	Mat res;
 	string camCode = (camNum == 0) ? "_l" : "_r";
@@ -145,26 +147,37 @@ Mat StereoCalibration::GetImage(int camNum, int i) {
 	return res;
 }
 
+void StereoCalibration::calcBoardCornerPositions( vector<Point3f>& corners)
+{
+	corners.clear();
+
+	for (int i = 0; i < boardSize.height; ++i)
+		for (int j = 0; j < boardSize.width; ++j)
+			corners.push_back(Point3f(float(j*squareSize), float(i*squareSize), 0));
+}
+
 double StereoCalibration::computeReprojectionErrors(const  vector< vector< Point3f> >& objectPoints,
 	const  vector< Mat>& rvecs, const  vector< Mat>& tvecs,
-	vector<float>& perViewErrors, const bool camNum)
+	vector<float>& perViewErrors, bool camNum)
 {
+	vector<Point2f> imagePoints2;
 	int i, totalPoints = 0;
 	double totalErr = 0, err;
 	perViewErrors.resize(objectPoints.size());
-	Mat imagePoints2;
+
 	for (i = 0; i < (int)objectPoints.size(); ++i)
 	{
 		projectPoints(Mat(objectPoints[i]), rvecs[i], tvecs[i], cameraMatrix[camNum],
 			distCoeffs[camNum], imagePoints2);
-		err = norm(Mat(imagePoints[camNum][i]), imagePoints2, CV_L2);
+		err = norm(Mat(imagePoints[camNum][i]), Mat(imagePoints2), CV_L2);
 
 		int n = (int)objectPoints[i].size();
 		perViewErrors[i] = (float)std::sqrt(err*err / n);
 		totalErr += err*err;
 		totalPoints += n;
 	}
-	return sqrt(totalErr / totalPoints);
+
+	return std::sqrt(totalErr / totalPoints);
 }
 
 bool StereoCalibration::runCalibration(vector< vector< Point3f> >& objectPoints,
@@ -177,11 +190,7 @@ bool StereoCalibration::runCalibration(vector< vector< Point3f> >& objectPoints,
 
 	distCoeffs[camNum] = Mat::zeros(8, 1, CV_64F);
 
-	objectPoints[0].clear();
-
-	for (int i = 0; i < boardSize.height; ++i)
-		for (int j = 0; j < boardSize.width; ++j)
-			objectPoints[0].push_back(Point3f(float(j*squareSize), float(i*squareSize), 0));
+	calcBoardCornerPositions(objectPoints[0]);
 
 	objectPoints.resize(imagePoints[camNum].size(), objectPoints[0]);
 
@@ -265,7 +274,8 @@ bool StereoCalibration::runCalibrationAndSave(vector<vector<Point3f> >& objectPo
 	vector<Mat> rvecs, tvecs;
 	vector<float> reprojErrs;
 	double totalAvgErr = 0;
-	bool ok = runCalibration(objectPoints, rvecs, tvecs, reprojErrs, totalAvgErr, camNum);
+
+	bool ok = runCalibration(objectPoints,rvecs, tvecs, reprojErrs, totalAvgErr, camNum);
 	cout << (ok ? "Calibration succeeded" : "Calibration failed")
 		<< ". avg re projection error = " << totalAvgErr;
 
