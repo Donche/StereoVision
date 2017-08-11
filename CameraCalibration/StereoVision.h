@@ -7,10 +7,13 @@
 
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/ximgproc.hpp>
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/xfeatures2d.hpp>
 #include <opencv2/imgcodecs.hpp>
+
+#include "StereoDisp.h"
 
 using cv::Mat;
 using cv::Mat_;
@@ -27,7 +30,7 @@ public:
 	~StereoVision();
 
 	enum StereoType { PHOTO_BM, PHOTO_SGBM, VISION_BM, VISION_SGBM, 
-		PHOTO_SURF, VISION_SURF, VISION_ORB };
+		PHOTO_SURF, VISION_SURF, VISION_ORB, VISION_SIFT};
 	enum MatchType { KNN_MATCH, BRUTE_FORCE};
 
 	bool runStereoVision(StereoType stereoType, MatchType matchType = KNN_MATCH);
@@ -38,8 +41,8 @@ private:
 	bool initBMSV(Mat& map11, Mat& map12, Mat& map21, Mat& map22, Mat& Q);
 	bool runBMStereoVision(StereoType stereoType);
 	bool runBMStereoPhoto(StereoType stereoType);
-	void fixDisparity(Mat_<float> & disp, int numberOfDisparities);
-	void BM23D(Mat& disparity32F, Mat& Q);
+	void fixDisparity(Mat_<float> & disp, int numberOfDisparities, int an);
+	bool BM23D(Mat& disparity32F, Mat& Q, Mat_<Vec3f> texture);
 
 	//Key Points
 	bool initFeatureSV(Mat& K);

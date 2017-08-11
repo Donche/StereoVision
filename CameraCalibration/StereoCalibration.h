@@ -25,8 +25,8 @@ public:
 	~StereoCalibration() {
 
 	}
-
-	bool runStereoCalibration();
+	enum Pattern { NOT_EXISTING, CHESSBOARD, CIRCLES_GRID, ASYMMETRIC_CIRCLES_GRID };
+	bool runStereoCalibration(Pattern pat);
 
 
 private:
@@ -46,7 +46,9 @@ private:
 	vector<vector<vector<Point2f> > > imagePoints;
 	vector<vector<Point3f> > objectPoints;
 	vector<Mat> cameraMatrix, distCoeffs;
-	Size imageSize;
+	vector<Mat> map;
+	Mat Q;
+	Size imgSize;
 	Size boardSize;
 	float squareSize;
 	clock_t prevTimestamp = 0;

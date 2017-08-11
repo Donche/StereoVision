@@ -1,8 +1,8 @@
 #include "StereoCalibration.h"
 
 #define WIDTH 7
-#define HEIGHT 5
-#define SQUARE_SIZE 40
+#define HEIGHT 7
+#define SQUARE_SIZE 0.027
 #define OUTPUT_FILENAME "result.yml"
 #define STEREO_OUTPUT_FILENAME "stereo_result.yml"
 
@@ -14,15 +14,17 @@ StereoCalibration::StereoCalibration():RED(Scalar(0, 0, 255)), GREEN(Scalar(0, 2
 	imagePoints.resize(2);
 	objectPoints.resize(1);
 	cameraMatrix.resize(2);
+	map.resize(4);
 	distCoeffs.resize(2);
 	view.resize(2);
 	boardSize.width = WIDTH;
 	boardSize.height = HEIGHT;
+	squareSize = SQUARE_SIZE;
 }
 
 
 
-bool StereoCalibration::runStereoCalibration()
+bool StereoCalibration::runStereoCalibration(Pattern pat)
 {
 	int imageNumber = 0;
 	cout << "input the amount of images" << endl;
@@ -42,27 +44,35 @@ bool StereoCalibration::runStereoCalibration()
 			continue;
 		}
 
-		imageSize = view[0].size();  // Format input image.
+		imgSize = view[0].size();  // Format input image.
 		vector<vector<Point2f>> pointBuf(2);
 		vector<bool> found(2);
-		found[0] = findChessboardCorners(view[0], Size(WIDTH, HEIGHT), pointBuf[0],
-			CV_CALIB_CB_ADAPTIVE_THRESH | CV_CALIB_CB_FAST_CHECK | CV_CALIB_CB_NORMALIZE_IMAGE);
-		found[1] = findChessboardCorners(view[1], Size(WIDTH, HEIGHT), pointBuf[1],
-			CV_CALIB_CB_ADAPTIVE_THRESH | CV_CALIB_CB_FAST_CHECK | CV_CALIB_CB_NORMALIZE_IMAGE);
+		if (pat == CHESSBOARD) {
+			found[0] = findChessboardCorners(view[0], Size(WIDTH, HEIGHT), pointBuf[0],
+				CV_CALIB_CB_ADAPTIVE_THRESH | CV_CALIB_CB_FAST_CHECK | CV_CALIB_CB_NORMALIZE_IMAGE);
+			found[1] = findChessboardCorners(view[1], Size(WIDTH, HEIGHT), pointBuf[1],
+				CV_CALIB_CB_ADAPTIVE_THRESH | CV_CALIB_CB_FAST_CHECK | CV_CALIB_CB_NORMALIZE_IMAGE);
+		}
+		else if (pat == CIRCLES_GRID) {
+			found[0] = findCirclesGrid(view[0], Size(WIDTH, HEIGHT), pointBuf[0]);
+			found[1] = findCirclesGrid(view[1], Size(WIDTH, HEIGHT), pointBuf[1]);
+		}
 		cout << i << "--> Found : " << found[0] << " " << found[1] << endl;
 
 		if (found[0] && found[1])
 		{
-			vector<Mat> viewGray(2);
-			cvtColor(view[0], viewGray[0], COLOR_BGR2GRAY);
-			cornerSubPix(viewGray[0], pointBuf[0], Size(11, 11),
-				Size(-1, -1), TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1));
+			if (pat == CHESSBOARD) {
+				vector<Mat> viewGray(2);
+				cvtColor(view[0], viewGray[0], COLOR_BGR2GRAY);
+				cornerSubPix(viewGray[0], pointBuf[0], Size(11, 11),
+					Size(-1, -1), TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1));
+
+				cvtColor(view[1], viewGray[1], COLOR_BGR2GRAY);
+				cornerSubPix(viewGray[1], pointBuf[1], Size(11, 11),
+					Size(-1, -1), TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1));
+			}
 			drawChessboardCorners(view[0], Size(WIDTH, HEIGHT), Mat(pointBuf[0]), found[0]);
 			imagePoints[0].push_back(pointBuf[0]);
-
-			cvtColor(view[1], viewGray[1], COLOR_BGR2GRAY);
-			cornerSubPix(viewGray[1], pointBuf[1], Size(11, 11),
-				Size(-1, -1), TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1));
 			drawChessboardCorners(view[1], Size(WIDTH, HEIGHT), Mat(pointBuf[1]), found[1]);
 			imagePoints[1].push_back(pointBuf[1]);
 		}
@@ -111,24 +121,30 @@ bool StereoCalibration::runStereoCalibration()
 
 #pragma endregion
 
-	Mat R, T, E, F;
+	Mat R, T, E, F, R1, R2, P1, P2;
 	if (imagePoints[0].size() == 0 || imagePoints[1].size() == 0) return 0;
 	stereoCalibrate(objectPoints, imagePoints[0], imagePoints[1], cameraMatrix[0], distCoeffs[0],
-		cameraMatrix[1], distCoeffs[1], imageSize, R, T, E, F);
+		cameraMatrix[1], distCoeffs[1], imgSize, R, T, E, F);
+
+	stereoRectify(cameraMatrix[0], distCoeffs[0], cameraMatrix[1], distCoeffs[1], imgSize, R, T, R1, R2, P1, P2, Q, CALIB_ZERO_DISPARITY);
+
+	initUndistortRectifyMap(cameraMatrix[0], distCoeffs[0], R1, P1, imgSize, CV_16SC2, map[0], map[1]);
+	initUndistortRectifyMap(cameraMatrix[1], distCoeffs[1], R2, P2, imgSize, CV_16SC2, map[2], map[3]);
 
 
 	FileStorage fs(STEREO_OUTPUT_FILENAME, FileStorage::WRITE);
 	if (fs.isOpened()) {
 		fs << "Camera_Matrix" << cameraMatrix[0];
 		fs << "Distortion_Coefficients" << distCoeffs[0];
-		fs << "F";
-		fs << F;
-		fs << "E";
-		fs << E;
-		fs << "R";
-		fs << R;
-		fs << "T";
-		fs << T;
+		fs << "F" << F;
+		fs << "E" << E;
+		fs << "R" << R;
+		fs << "T" << T;
+		fs << "Q" << Q;
+		fs << "map11" << map[0];
+		fs << "map12" << map[1]; 
+		fs << "map21" << map[2]; 
+		fs << "map22" << map[3]; 
 		fs.release();
 	}
 	else {
@@ -141,7 +157,7 @@ bool StereoCalibration::runStereoCalibration()
 
 Mat StereoCalibration::GetImage(int camNum, int i) {
 	Mat res;
-	string camCode = (camNum == 0) ? "_l" : "_r";
+	string camCode = (camNum == 0) ? "_0" : "_1";
 	string imageName = "CalibrationImages\\image" + to_string(i) + camCode + ".jpg";
 	res = imread(imageName, CV_LOAD_IMAGE_COLOR);
 	return res;
@@ -196,7 +212,7 @@ bool StereoCalibration::runCalibration(vector< vector< Point3f> >& objectPoints,
 
 	//Find intrinsic and extrinsic camera parameters
 	int flag = 0;
-	double rms = calibrateCamera(objectPoints, imagePoints[camNum], imageSize, cameraMatrix[camNum],
+	double rms = calibrateCamera(objectPoints, imagePoints[camNum], imgSize, cameraMatrix[camNum],
 		distCoeffs[camNum], rvecs, tvecs, flag | CV_CALIB_FIX_K4 | CV_CALIB_FIX_K5);
 
 	cout << "Re-projection error reported by calibrateCamera: " << rms << endl;
@@ -224,8 +240,8 @@ void StereoCalibration::saveCameraParams(const  vector< Mat>& rvecs, const  vect
 
 	if (!rvecs.empty() || !reprojErrs.empty())
 		fs << "nrOfFrames" << (int)std::max(rvecs.size(), reprojErrs.size());
-	fs << "image_Width" << imageSize.width;
-	fs << "image_Height" << imageSize.height;
+	fs << "image_Width" << imgSize.width;
+	fs << "image_Height" << imgSize.height;
 	fs << "board_Width" << WIDTH;
 	fs << "board_Height" << HEIGHT;
 	fs << "square_Size" << SQUARE_SIZE;
@@ -277,7 +293,7 @@ bool StereoCalibration::runCalibrationAndSave(vector<vector<Point3f> >& objectPo
 
 	bool ok = runCalibration(objectPoints,rvecs, tvecs, reprojErrs, totalAvgErr, camNum);
 	cout << (ok ? "Calibration succeeded" : "Calibration failed")
-		<< ". avg re projection error = " << totalAvgErr;
+		<< ". avg re projection error = " << totalAvgErr << endl;
 
 	if (ok)
 		saveCameraParams(rvecs, tvecs, reprojErrs,totalAvgErr, camNum);

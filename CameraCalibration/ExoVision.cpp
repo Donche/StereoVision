@@ -17,8 +17,8 @@
 #include "StereoCalibration.h"
 #include "TakePictures.h"
 
-#define IMAGE_HEIGHT 777
-#define IMAGE_WIDTH 1000
+#define IMAGE_HEIGHT 768
+#define IMAGE_WIDTH 1024
 #define DISP_IMG_HEIGHT 400
 #define DISP_IMG_WIDTH 500
 
@@ -41,8 +41,8 @@ void openCamera() {
 	Rect rect1 = Rect(0, 0, DISP_IMG_WIDTH, DISP_IMG_HEIGHT);
 	Rect rect2 = Rect(DISP_IMG_WIDTH, 0, DISP_IMG_WIDTH, DISP_IMG_HEIGHT);
 	while (1) {
-		cam0 >> imgLeft;
-		cam1 >> imgRight;
+		cam1 >> imgLeft;
+		cam0 >> imgRight;
 		flip(imgLeft, imgLeft, 0);
 		flip(imgRight, imgRight, 0);
 		imgTotal.create(Size(DISP_IMG_WIDTH * 2, DISP_IMG_HEIGHT), CV_8UC3);
@@ -55,7 +55,7 @@ void openCamera() {
 
 int main()
 {
-	char inp, inp2;
+	int inp, inp2;
 
 	TakePictures tp;
 	StereoCalibration sc;
@@ -67,29 +67,30 @@ int main()
 		cin >> inp;
 
 		switch (inp) {
-		case '1':
+		case 1:
 			tp.runTakePictures();
 			break;
-		case '2':
-			sc.runStereoCalibration();
+		case 2:
+			cout << "1.Chessboard \t 2.Circles Grid \t 0.Return" << endl;
+			cin >> inp2;
+			if (inp2 == 0) continue;
+			else if (inp2 < 1 || inp2 > 2) continue;
+			sc.runStereoCalibration((StereoCalibration::Pattern)inp2);
 			break;
-		case '3':
-			cout << "1.BM Photo \t 2.SGBM Photo \t 3.BM vision \t 4.SGBM vision \t\n"
-				<< "5.SURF photo \t 6.SURF vision \t 7.ORB visoin \t 0.Return" << endl;
-			int inp;
-			cin >> inp;
-
-			sv.runStereoVision((StereoVision::StereoType)(inp - 1));
+		case 3:
+			cout << "1.BM Photo \t 2.SGBM Photo \t 3.BM Vision \t 4.SGBM Vision \t\n"
+				<< "5.SURF Photo \t 6.SURF Vision \t 7.ORB Visoin \t 8.SIFT Vision \t 0.Return" << endl;
+			cin >> inp2;
+			if (inp2 == 0) continue;
+			sv.runStereoVision((StereoVision::StereoType)(inp2 - 1));
 			break;
-		case '4':
+		case 4:
 			openCamera();
 			break;
-		case '\n':
-			break;
-		case '0':
+		case 0:
 			return 0;
 		default:
-			cout << "wwwwwwwwwhat??" << endl;
+			cout << "Whaaaaaaaaaaaaaaaaat??" << endl;
 			break;
 		}
 	}

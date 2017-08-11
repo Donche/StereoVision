@@ -3,14 +3,15 @@
 using namespace std;
 using namespace cv;
 
-#define IMAGE_HEIGHT 777
-#define IMAGE_WIDTH 1000
+#define IMAGE_HEIGHT 768
+#define IMAGE_WIDTH 1024
 #define DISP_IMG_HEIGHT 350
 #define DISP_IMG_WIDTH 400
+#define OPENGL_DISP false
+#define BM_POST_FILTER true
 
 StereoVision::StereoVision()
 {
-
 }
 
 StereoVision::~StereoVision()
@@ -54,15 +55,20 @@ bool StereoVision::initBMSV(Mat& map11, Mat& map12, Mat& map21, Mat& map22, Mat&
 	fs0["image_Width"] >> imgSize.width;
 	stereofs["R"] >> R;
 	stereofs["T"] >> T;
-	stereoRectify(Camera_Matrix0, distCoeff0, Camera_Matrix1, distCoeff1, imgSize, R, T, R1, R2, P1, P2, Q, CALIB_ZERO_DISPARITY);
+	stereofs["map11"] >> map11;
+	stereofs["map12"] >> map12;
+	stereofs["map21"] >> map21;
+	stereofs["map22"] >> map22;
+	stereofs["Q"] >> Q;
+	//stereoRectify(Camera_Matrix0, distCoeff0, Camera_Matrix1, distCoeff1, imgSize, R, T, R1, R2, P1, P2, Q, CALIB_ZERO_DISPARITY);
 
-	initUndistortRectifyMap(Camera_Matrix0, distCoeff0, R1, P1, imgSize, CV_16SC2, map11, map12);
-	initUndistortRectifyMap(Camera_Matrix1, distCoeff1, R2, P2, imgSize, CV_16SC2, map21, map22);
+	//initUndistortRectifyMap(Camera_Matrix0, distCoeff0, R1, P1, imgSize, CV_16SC2, map11, map12);
+	//initUndistortRectifyMap(Camera_Matrix1, distCoeff1, R2, P2, imgSize, CV_16SC2, map21, map22);
 
 	return 1;
 }
 
-bool StereoVision::runBMStereoVision(StereoType stereoType) {
+bool StereoVision::runBMStereoVision(StereoType stereoType)  {
 
 	VideoCapture cam1(1);
 	VideoCapture cam0(0);
@@ -75,40 +81,62 @@ bool StereoVision::runBMStereoVision(StereoType stereoType) {
 	cam1.set(CV_CAP_PROP_FRAME_WIDTH, IMAGE_WIDTH);
 	cam1.set(CV_CAP_PROP_FRAME_HEIGHT, IMAGE_HEIGHT);
 
-	Mat map11, map12, map21, map22, Q;
+	Mat map11, map12, map21, map22, Q, channel[3];
 	if (!initBMSV(map11, map12, map21, map22, Q)) return 0;
 
-	Rect rect1, rect2;
+	Rect rect1, rect2, rect3, rect4;
 	rect1 = Rect(0, 0, DISP_IMG_WIDTH, DISP_IMG_HEIGHT);
 	rect2 = Rect(DISP_IMG_WIDTH, 0, DISP_IMG_WIDTH, DISP_IMG_HEIGHT);
+	rect3 = Rect(0, DISP_IMG_HEIGHT, DISP_IMG_WIDTH, DISP_IMG_HEIGHT);
+	rect4 = Rect(DISP_IMG_WIDTH, DISP_IMG_HEIGHT, DISP_IMG_WIDTH, DISP_IMG_HEIGHT);
 
 	Mat imgLeft, imgRight, imgLeft_tmp, imgRight_tmp, imgTotal;
+	Mat texture;
+	imgTotal.create(Size(DISP_IMG_WIDTH * 2, DISP_IMG_HEIGHT * 2), CV_8UC1);
+
+
+	int preFilterSize = 10; /*Musr be odd*/
+	int preFilterCap = 36;
+
+	int ndisparities = 5;   /**< Range of disparity */
+	int SADWindowSize = 4; /**< Size of the block window. Must be odd */
+
+	int textureThreshold = 507;
+	int uniquenessRatio = 4;
+	int speckleWindowSize = 6;
+	int speckleRange = 14;
+
+	int lambda = 3;
+	int sigma = 3;
+
+	cvNamedWindow("Parameters Adjustment");
+	cvMoveWindow("Parameters Adjustment", 10, 5);
+	cvResizeWindow("Parameters Adjustment", 450, 450);
+	createTrackbar("preFilterSize", "Parameters Adjustment", &preFilterSize, 10);
+	//createTrackbar("blockSize", "Parameters Adjustment", &blockSize, 40);
+	createTrackbar("preFilterCap", "Parameters Adjustment", &preFilterCap, 61);
+
+	createTrackbar("ndisparities", "Parameters Adjustment", &ndisparities, 7);
+	createTrackbar("SADWindowSize", "Parameters Adjustment", &SADWindowSize, 12);
+
+	createTrackbar("textureThreshold", "Parameters Adjustment", &textureThreshold, 507);
+	createTrackbar("uniquenessRatio", "Parameters Adjustment", &uniquenessRatio, 10);
+	createTrackbar("speckleWindowSize", "Parameters Adjustment", &speckleWindowSize, 150);
+	createTrackbar("speckleRange", "Parameters Adjustment", &speckleRange, 50);
+
+	createTrackbar("lambda", "Parameters Adjustment", &lambda, 150);
+	createTrackbar("sigma", "Parameters Adjustment", &sigma, 150);
+
+	//createTrackbar("an", "Parameters Adjustment", &an, 10);
+
+	//---OpenGL display initiate
+	if (OPENGL_DISP)	
+		initDisp(IMAGE_HEIGHT, IMAGE_WIDTH);
+
 	while (1)
 	{
-		cam0 >> imgLeft;
-		cam1 >> imgRight;
-		flip(imgLeft, imgLeft, 0);
-		flip(imgRight, imgRight, 0);
-		cvtColor(imgLeft, imgLeft, CV_BGR2GRAY);
-		cvtColor(imgRight, imgRight, CV_BGR2GRAY);
-		//imshow("o_view0", imgLeft);
-		//imshow("o_view1", imgRight);
-		remap(imgLeft, imgLeft_tmp, map11, map12, INTER_LINEAR);
-		remap(imgRight, imgRight_tmp, map21, map22, INTER_LINEAR);
-		imgLeft = imgLeft_tmp;
-		imgRight = imgRight_tmp;
-
-		imgTotal.create(Size(DISP_IMG_WIDTH * 2, DISP_IMG_HEIGHT), CV_8UC1);
-		resize(imgLeft, imgTotal(rect1), Size(DISP_IMG_WIDTH, DISP_IMG_HEIGHT));
-		resize(imgRight, imgTotal(rect2), Size(DISP_IMG_WIDTH, DISP_IMG_HEIGHT));
-
-		//imshow("view0", imgLeft);
-		//imshow("view1", imgRight);
-		cv::imshow("Img", imgTotal);
-
-		Mat imgDisparity32F = Mat(imgLeft.rows, imgLeft.cols, CV_32F);
-		Mat imgDisparity8U = Mat(imgLeft.rows, imgLeft.cols, CV_8UC1);
-
+		cam1 >> imgLeft;
+		cam0 >> imgRight;
 		if (imgLeft.empty() || imgRight.empty())
 		{
 			std::cout << " --(!) Error reading images " << std::endl;
@@ -116,24 +144,164 @@ bool StereoVision::runBMStereoVision(StereoType stereoType) {
 			continue;
 		}
 
+		flip(imgLeft, imgLeft, 0);
+		flip(imgRight, imgRight, 0);
+		split(imgLeft, channel);
+		remap(channel[0], channel[0], map21, map22, INTER_LINEAR);
+		remap(channel[1], channel[1], map21, map22, INTER_LINEAR);
+		remap(channel[2], channel[2], map21, map22, INTER_LINEAR);
+		merge(channel, 3, texture);
+
+		cvtColor(imgLeft, imgLeft, CV_BGR2GRAY);
+		cvtColor(imgRight, imgRight, CV_BGR2GRAY);
+
+		GaussianBlur(imgLeft, imgLeft, Size(1, 1), 20, 0);
+		GaussianBlur(imgRight, imgRight, Size(1, 1), 20, 0);
+		//equalizeHist(imgLeft, imgLeft);
+		//equalizeHist(imgRight, imgRight);
+		//equalizeHist(imgLeft, imgLeft);
+		//equalizeHist(imgRight, imgRight);
+
+		remap(imgLeft, imgLeft_tmp, map21, map22, INTER_LINEAR);
+		remap(imgRight, imgRight_tmp, map11, map12, INTER_LINEAR);
+		imgLeft = imgLeft_tmp;
+		imgRight = imgRight_tmp;
+
+		resize(imgLeft, imgTotal(rect1), Size(DISP_IMG_WIDTH, DISP_IMG_HEIGHT));
+		resize(imgRight, imgTotal(rect2), Size(DISP_IMG_WIDTH, DISP_IMG_HEIGHT));
+
+		Mat imgDisparity16S = Mat(imgLeft.rows, imgLeft.cols, CV_16S);
+		Mat imgDisparity32F = Mat(imgLeft.rows, imgLeft.cols, CV_32F);
+		Mat imgDisparity8U = Mat(imgLeft.rows, imgLeft.cols, CV_8UC1);
+		double minVal; double maxVal;
+
 		//-- 2. Call the constructor for StereoBM
-		int ndisparities, SADWindowSize;
-
 		if (stereoType = VISION_BM) {
-			ndisparities = 16 * 3;   /**< Range of disparity */
-			SADWindowSize = 19; /**< Size of the block window. Must be odd */
 
-			Ptr<StereoBM> bm = StereoBM::create(ndisparities, SADWindowSize);
+			Ptr<StereoBM> bm = StereoBM::create(ndisparities * 16, SADWindowSize * 2 +5);
 			//bm->setPreFilterType(CV_STEREO_BM_NORMALIZED_RESPONSE);
 			//bm->setPreFilterSize(9);
-			bm->setPreFilterCap(31);
-			bm->setBlockSize(21);
+			bm->setPreFilterCap(preFilterCap + 1);
+			bm->setPreFilterSize(preFilterSize * 2 + 5);
+			//bm->setBlockSize(blockSize);
 			bm->setMinDisparity(-16);
-			bm->setNumDisparities(80);
-			//bm->setTextureThreshold(10);
-			bm->setUniquenessRatio(5);
-			bm->setSpeckleWindowSize(100);
-			bm->setSpeckleRange(32);
+			bm->setTextureThreshold(textureThreshold);
+			bm->setUniquenessRatio(uniquenessRatio);
+			bm->setSpeckleWindowSize(speckleWindowSize);
+			bm->setSpeckleRange(speckleRange);
+			bm->setDisp12MaxDiff(1);
+
+			//-- 3. Calculate the disparity image
+			if (BM_POST_FILTER) {
+				Mat imgDisparity16SLeft = Mat(imgLeft.rows, imgLeft.cols, CV_16S);
+				Mat imgDisparity16SRight = Mat(imgLeft.rows, imgLeft.cols, CV_16S);
+
+				bm->compute(imgLeft, imgRight, imgDisparity16SLeft);
+				bm->compute(imgRight, imgLeft, imgDisparity16SRight);
+
+				Ptr<ximgproc::DisparityWLSFilter> wlsFilter = ximgproc::createDisparityWLSFilter(bm);
+				wlsFilter->setLambda(lambda / 10.0);
+				wlsFilter->setSigmaColor(sigma / 10.0);
+				wlsFilter->filter(imgDisparity16SLeft, imgLeft, imgDisparity16S, imgDisparity16SRight);
+
+				Mat imgDisparity8ULeft = Mat(imgLeft.rows, imgLeft.cols, CV_8UC1);
+				minMaxLoc(imgDisparity16S, &minVal, &maxVal);
+				imgDisparity16SLeft.convertTo(imgDisparity8ULeft, CV_8UC1, 255 / (maxVal - minVal));
+				resize(imgDisparity8ULeft, imgTotal(rect3), Size(DISP_IMG_WIDTH, DISP_IMG_HEIGHT));
+			}
+			else {
+				bm->compute(imgLeft, imgRight, imgDisparity16S);
+			}
+		}
+
+		else if (stereoType == VISION_SGBM) {
+
+			Ptr<StereoSGBM> sgbm = StereoSGBM::create(ndisparities, SADWindowSize, 5);
+
+			//-- 3. Calculate the disparity image
+			sgbm->compute(imgLeft, imgRight, imgDisparity16S);
+		}
+
+		//-- Check its extreme values
+		minMaxLoc(imgDisparity16S, &minVal, &maxVal);
+
+		//printf("Min disp: %f Max value: %f \n", minVal, maxVal);
+
+		//-- 4. Display it as a CV_8UC1 image
+
+		//fixDisparity(Mat_<float>(imgDisparity32F), ndisparities, an);
+		imgDisparity16S.convertTo(imgDisparity8U, CV_8UC1, 255 / (maxVal - minVal));
+		imgDisparity16S.convertTo(imgDisparity32F, CV_32F);
+
+		resize(imgDisparity8U, imgTotal(rect4), Size(DISP_IMG_WIDTH, DISP_IMG_HEIGHT));
+
+		imshow("Img", imgTotal);
+
+		if(OPENGL_DISP)
+			BM23D(imgDisparity32F, Q, (Mat_<Vec3f>) texture);
+
+		cv::waitKey(30);
+
+	}
+	return 1;
+}
+
+bool StereoVision::runBMStereoPhoto(StereoType stereoType) {
+	Mat imgLeft = imread("CalibrationStaticImages\\1.jpg");
+	Mat imgRight = imread("CalibrationStaticImages\\2.jpg");
+	Mat_<Vec3f> texture = imgLeft.clone();
+	cvtColor(imgLeft, imgLeft, CV_BGR2GRAY);
+	cvtColor(imgRight, imgRight, CV_BGR2GRAY);
+
+	Mat map11, map12, map21, map22, Q;
+	if (!initBMSV(map11, map12, map21, map22, Q)) return 0;
+
+	Mat imgDisparity32F = Mat(imgLeft.rows, imgLeft.cols, CV_32F);
+	Mat imgDisparity8U = Mat(imgLeft.rows, imgLeft.cols, CV_8UC1);
+
+	//-- 2. Call the constructor for StereoBM
+	int preFilterSize = 10; /*Musr be odd*/
+	int preFilterCap = 36;
+
+	int ndisparities = 5;   /**< Range of disparity */
+	int SADWindowSize = 4; /**< Size of the block window. Must be odd */
+
+	int textureThreshold = 507;
+	int uniquenessRatio = 4;
+	int speckleWindowSize = 6;
+	int speckleRange = 14;
+
+	initDisp(imgLeft.rows, imgLeft.cols);
+
+	cvNamedWindow("Parameters Adjustment");
+	cvMoveWindow("Parameters Adjustment", 10, 5);
+	cvResizeWindow("Parameters Adjustment", 450, 400);
+	createTrackbar("preFilterSize", "Parameters Adjustment", &preFilterSize, 10);
+	//createTrackbar("blockSize", "Parameters Adjustment", &blockSize, 40);
+	createTrackbar("preFilterCap", "Parameters Adjustment", &preFilterCap, 61);
+
+	createTrackbar("ndisparities", "Parameters Adjustment", &ndisparities, 7);
+	createTrackbar("SADWindowSize", "Parameters Adjustment", &SADWindowSize, 12);
+
+	createTrackbar("textureThreshold", "Parameters Adjustment", &textureThreshold, 507);
+	createTrackbar("uniquenessRatio", "Parameters Adjustment", &uniquenessRatio, 10);
+	createTrackbar("speckleWindowSize", "Parameters Adjustment", &speckleWindowSize, 150);
+	createTrackbar("speckleRange", "Parameters Adjustment", &speckleRange, 50);
+	while (1) {
+		if (stereoType = VISION_BM) {
+
+			Ptr<StereoBM> bm = StereoBM::create(ndisparities * 16, SADWindowSize * 2 + 1);
+			//bm->setPreFilterType(CV_STEREO_BM_NORMALIZED_RESPONSE);
+			//bm->setPreFilterSize(9);
+			bm->setPreFilterCap(preFilterCap + 1);
+			bm->setPreFilterSize(preFilterSize * 2 + 5);
+			//bm->setBlockSize(blockSize);
+			bm->setMinDisparity(-16);
+			bm->setTextureThreshold(textureThreshold);
+			bm->setUniquenessRatio(uniquenessRatio);
+			bm->setSpeckleWindowSize(speckleWindowSize);
+			bm->setSpeckleRange(speckleRange);
+			bm->setDisp12MaxDiff(1);
 
 			//-- 3. Calculate the disparity image
 
@@ -157,91 +325,26 @@ bool StereoVision::runBMStereoVision(StereoType stereoType) {
 		//printf("Min disp: %f Max value: %f \n", minVal, maxVal);
 
 		//-- 4. Display it as a CV_8UC1 image
-		namedWindow("Disparity before fix", WINDOW_NORMAL);
 		imgDisparity32F.convertTo(imgDisparity8U, CV_8UC1, 255 / (maxVal - minVal));
-		Mat imgDisparity_tmp = imgDisparity8U.clone();
-		cv::imshow("Disparity before fix", imgDisparity_tmp);
-		cv::waitKey(30);
-
-		fixDisparity(Mat_<float>(imgDisparity32F), ndisparities);
-		imgDisparity32F.convertTo(imgDisparity8U, CV_8UC1, 255 / (maxVal - minVal));
+		cv::normalize(imgDisparity8U, imgDisparity8U, 0, 255, CV_MINMAX, CV_8UC1);
 
 		namedWindow("Disparity", WINDOW_NORMAL);
 		cv::imshow("Disparity", imgDisparity8U);
 
+		BM23D(imgDisparity32F, Q, texture);
 
-		cv::waitKey(30);
-
+		cv::waitKey(100);
 	}
-	return 1;
-}
-
-bool StereoVision::runBMStereoPhoto(StereoType stereoType) {
-	Mat imgLeft = imread("CalibrationStaticImages\\1.jpg");
-	Mat imgRight = imread("CalibrationStaticImages\\2.jpg");
-	cvtColor(imgLeft, imgLeft, CV_BGR2GRAY);
-	cvtColor(imgRight, imgRight, CV_BGR2GRAY);
-
-	Mat imgDisparity32F = Mat(imgLeft.rows, imgLeft.cols, CV_32F);
-	Mat imgDisparity8U = Mat(imgLeft.rows, imgLeft.cols, CV_8UC1);
-
-	//-- 2. Call the constructor for StereoBM
-	int ndisparities, SADWindowSize;
-
-	if (stereoType = VISION_BM) {
-		ndisparities = 16 * 3;   /**< Range of disparity */
-		SADWindowSize = 19; /**< Size of the block window. Must be odd */
-
-		Ptr<StereoBM> bm = StereoBM::create(ndisparities, SADWindowSize);
-		//bm->setPreFilterType(CV_STEREO_BM_NORMALIZED_RESPONSE);
-		//bm->setPreFilterSize(9);
-		bm->setPreFilterCap(31);
-		bm->setBlockSize(21);
-		bm->setMinDisparity(-16);
-		bm->setNumDisparities(80);
-		//bm->setTextureThreshold(10);
-		bm->setUniquenessRatio(5);
-		bm->setSpeckleWindowSize(100);
-		bm->setSpeckleRange(32);
-
-		//-- 3. Calculate the disparity image
-
-		bm->compute(imgLeft, imgRight, imgDisparity32F);
-	}
-
-	else if (stereoType == VISION_SGBM) {
-		ndisparities = 16 * 3;   /**< Range of disparity */
-		SADWindowSize = 11; /**< Size of the block window. Must be odd */
-
-		Ptr<StereoSGBM> sgbm = StereoSGBM::create(ndisparities, SADWindowSize, 5);
-
-		//-- 3. Calculate the disparity image
-		sgbm->compute(imgLeft, imgRight, imgDisparity32F);
-	}
-
-	//-- Check its extreme values
-	double minVal; double maxVal;
-	minMaxLoc(imgDisparity32F, &minVal, &maxVal);
-
-	//printf("Min disp: %f Max value: %f \n", minVal, maxVal);
-
-	//-- 4. Display it as a CV_8UC1 image
-	imgDisparity32F.convertTo(imgDisparity8U, CV_8UC1, 255 / (maxVal - minVal));
-	cv::normalize(imgDisparity8U, imgDisparity8U, 0, 255, CV_MINMAX, CV_8UC1);
-
-	namedWindow("Disparity", WINDOW_NORMAL);
-	cv::imshow("Disparity", imgDisparity8U);
-	cv::waitKey(100);
 
 	return 1;
 }
 
-void StereoVision::fixDisparity(Mat_<float> & disp, int numberOfDisparities)
+void StereoVision::fixDisparity(Mat_<float> & disp, int numberOfDisparities, int an)
 
 {
 	Mat_<float> disp1;
 	float lastPixel = 10;
-	float minDisparity = 23;// algorithm parameters that can be modified
+	float minDisparity = -16;// algorithm parameters that can be modified
 	for (int i = 0; i < disp.rows; i++)
 	{
 		for (int j = numberOfDisparities; j < disp.cols; j++)
@@ -250,7 +353,7 @@ void StereoVision::fixDisparity(Mat_<float> & disp, int numberOfDisparities)
 			else lastPixel = disp(i, j);
 		}
 	}
-	int an = 4;	// algorithm parameters that can be modified
+
 	copyMakeBorder(disp, disp1, an, an, an, an, BORDER_REPLICATE);
 	Mat element = getStructuringElement(MORPH_ELLIPSE, Size(an * 2 + 1, an * 2 + 1));
 	morphologyEx(disp1, disp1, CV_MOP_OPEN, element);
@@ -258,25 +361,34 @@ void StereoVision::fixDisparity(Mat_<float> & disp, int numberOfDisparities)
 	disp = disp1(Range(an, disp.rows - an), Range(an, disp.cols - an)).clone();
 }
 
-void StereoVision::BM23D(Mat& disparity32F, Mat& Q) {
+bool StereoVision::BM23D(Mat& disparity32F, Mat& Q, Mat_<Vec3f> texture) {
 	Mat_<Vec3f> XYZ(disparity32F.rows, disparity32F.cols);   // Output point cloud
-	Mat_<float> vec_tmp(4, 1);
-	for (int y = 0; y<disparity32F.rows; ++y) {
-		for (int x = 0; x<disparity32F.cols; ++x) {
-			vec_tmp(0) = x;
-			vec_tmp(1) = y;
-			vec_tmp(2) = disparity32F.at<float>(y, x);
-			vec_tmp(3) = 1;
+	//Mat_<float> vec_tmp(4, 1);
+	//for (int y = 0; y<disparity32F.rows; ++y) {
+	//	for (int x = 0; x<disparity32F.cols; ++x) {
+	//		vec_tmp(0) = x;
+	//		vec_tmp(1) = y;
+	//		vec_tmp(2) = disparity32F.at<float>(y, x);
+	//		vec_tmp(3) = 1;
 
-			vec_tmp = Q*vec_tmp;
-			vec_tmp /= vec_tmp(3);
+	//		vec_tmp = Q*vec_tmp;
+	//		vec_tmp /= vec_tmp(3);
 
-			cv::Vec3f &point = XYZ.at<cv::Vec3f>(y, x);
-			point[0] = vec_tmp(0);
-			point[1] = vec_tmp(1);
-			point[2] = vec_tmp(2);
-		}
-	}
+	//		cv::Vec3f &point = XYZ.at<cv::Vec3f>(y, x);
+	//		point[0] = vec_tmp(0);
+	//		point[1] = vec_tmp(1);
+	//		point[2] = vec_tmp(2);
+	//	}
+	//}
+
+	reprojectImageTo3D(disparity32F, XYZ, Q);
+
+	runStereoDisp(XYZ, texture);
+
+
+	waitKey(30);
+
+	return 1;
 }
 
 
@@ -325,11 +437,17 @@ bool StereoVision::runFeatureStereoVision(StereoType sType, MatchType mType) {
 		feature_r = xfeatures2d::SURF::create();
 		cout << "surf!" << endl;
 	}
-	else {
+	else if(sType == VISION_ORB){
 		matcher = BFMatcher::create(NORM_HAMMING);
 		feature_l = ORB::create(500, 1.2f, 8, 31, 0, 2, ORB::HARRIS_SCORE, 31, 20);
 		feature_r = ORB::create(500, 1.2f, 8, 31, 0, 2, ORB::HARRIS_SCORE, 31, 20);
 		cout << "ORB!" << endl;
+	}
+	else {
+		matcher = BFMatcher::create(NORM_L2);
+		feature_l = xfeatures2d::SIFT::create();
+		feature_r = xfeatures2d::SIFT::create();
+		cout << "SIFT!" << endl;
 	}
 
 	while (1) {
@@ -347,6 +465,12 @@ bool StereoVision::runFeatureStereoVision(StereoType sType, MatchType mType) {
 		flip(imgRight, imgRight, 0);
 		cvtColor(imgLeft, imgLeft, CV_BGR2GRAY);
 		cvtColor(imgRight, imgRight, CV_BGR2GRAY);
+		
+
+		GaussianBlur(imgLeft, imgLeft, Size(1,1), 0, 0);
+		GaussianBlur(imgRight, imgRight, Size(1, 1), 0, 0);
+		equalizeHist(imgLeft, imgLeft);
+		equalizeHist(imgRight, imgRight);
 		equalizeHist(imgLeft, imgLeft);
 		equalizeHist(imgRight, imgRight);
 
@@ -546,7 +670,7 @@ bool StereoVision::calRnT(Mat& K, vector<Point2f>& p1, vector<Point2f>& p2, Mat&
 	double feasible_count = countNonZero(mask);
 	cout << (int)feasible_count << " -in- " << p1.size()  << " ratio:" << feasible_count / p1.size() << endl;
 	//对于RANSAC而言，outlier数量大于50%时，结果是不可靠的
-	if (feasible_count <= 15 || (feasible_count / p1.size()) < 0.6) {
+	if (feasible_count <= 7 || (feasible_count / p1.size()) < 0.6) {
 		cout << "result not reliable" << endl;
 		return false;
 	}

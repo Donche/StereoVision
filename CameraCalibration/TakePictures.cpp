@@ -1,7 +1,7 @@
 #include "TakePictures.h"
 
-#define IMAGE_HEIGHT 777
-#define IMAGE_WIDTH 1000
+#define IMAGE_HEIGHT 768
+#define IMAGE_WIDTH 1024
 #define DISP_IMG_HEIGHT 400
 #define DISP_IMG_WIDTH 500
 
@@ -11,7 +11,6 @@ using namespace cv;
 TakePictures::TakePictures()
 {
 }
-
 
 TakePictures::~TakePictures()
 {
@@ -37,8 +36,10 @@ void TakePictures::runTakePictures() {
 	string fileName;
 	cout << "Press enter to skip the current frame, any key else to save the picture" << endl;
 	while (1) {
-		cam0 >> imgLeft;
-		cam1 >> imgRight;
+		cam1 >> imgLeft;
+		cam0 >> imgRight;
+		flip(imgLeft, imgLeft, 0);
+		flip(imgRight, imgRight, 0);
 		imgTotal.create(Size(DISP_IMG_WIDTH * 2, DISP_IMG_HEIGHT), CV_8UC3);
 		resize(imgLeft, imgTotal(rect1), Size(DISP_IMG_WIDTH, DISP_IMG_HEIGHT));
 		resize(imgRight, imgTotal(rect2), Size(DISP_IMG_WIDTH, DISP_IMG_HEIGHT));
@@ -57,8 +58,8 @@ void TakePictures::runTakePictures() {
 			return;
 		}
 		cout << "writing images : " << cnt << endl;
-		imwrite("CalibrationImages\\" + fileName + "_l.jpg", imgLeft);
-		imwrite("CalibrationImages\\" + fileName + "_r.jpg", imgRight);
+		imwrite("CalibrationImages\\" + fileName + "_0.jpg", imgLeft);
+		imwrite("CalibrationImages\\" + fileName + "_1.jpg", imgRight);
 		++cnt;
 	}
 }
