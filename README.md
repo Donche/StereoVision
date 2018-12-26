@@ -1,21 +1,22 @@
 StereoVision V4
-#已完成
-* OpenGL现已加入豪华大礼包，然而效果感人，视差图的后处理还应该再看看是怎么回事
-* 增加了调参窗口，现可实时调参啦
 
-# 待完成
-* 三维重建可视化的优化
-* 增强BM匹配鲁棒性
-* 增强关键点匹配的数量与准确性
+**Updated**
 
-StereoVision V2
-# 已完成
-* 双目摄像头标定
-* BM、SGBM算法计算视差
-* SURF 和 ORB 关键点匹配
-    * knn match，并用Ratio Test 获得最佳点
-    * 对称性验证
-    * 计算本征矩阵，并以此推出R 和 T
+* OpenGL has been added to represent point cloud, but there's something wrong with it and it don't work very well. Need to check out what's going wrong with the post processing of the disparity map
+* Add real-time parameter adjustment window
 
-# 最终BOSS
-* 实现较稳定的立体视觉（在双目摄像头位置并不稳定的情况下...）
+# TODOs
+* Optimization of 3D reconstruction
+* Enhanced robustness of BM matching 
+* Enhance the number and accuracy of feature detection, extraction and matching
+
+# DONE
+* Calibration of binocular camera
+* Calculate of disparity map of BM and SGBM
+* feature detection, extraction and matching of SURF and ORB
+    * use KNN match and ratio test to get the best result.
+    * Symmetry verification
+    * Calculate essential matrix and use this to derive matrix R and T
+
+# Final Goal
+* More stable stereo vision especially when the relative positions of the two cameras are unstable
